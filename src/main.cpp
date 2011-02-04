@@ -1154,6 +1154,8 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits)
 
 bool IsInitialBlockDownload()
 {
+    if (fBlockImport)
+        return true;
     if (pindexBest == NULL || (!fTestNet && nBestHeight < 118000))
         return true;
     static int64 nLastUpdate;
@@ -1912,6 +1914,59 @@ FILE* AppendBlockFile(unsigned int& nFileRet)
         fclose(file);
         nCurrentBlockFile++;
     }
+}
+
+bool InitBlockFile(string strFn)
+{
+    unsigned long n_blk = 0;
+
+    FILE *file = fopen(strFn.c_str(), "rb");
+    if (!file) {
+        printf("Failed to open block data file %s\n", strFn.c_str());
+        return false;
+    }
+
+    CAutoFile filein(file);
+    CBlockFileHeader hdr;
+
+    while (1)
+    {
+    	try {
+            if (!hdr.ReadRaw(filein))
+                return false;
+	}
+	catch (std::ios_base::failure) {
+	    break;
+	}
+
+        auto_ptr<CBlock> pblock(new CBlock);
+
+    	try {
+            if (!pblock->ReadRaw(filein))
+                return false;
+	}
+	catch (std::ios_base::failure) {
+	    break;
+	}
+
+        uint256 hash = pblock->GetHash();
+
+        if (hash == hashGenesisBlock) {
+            // ignore; LoadBlockIndex already gave it to us
+        } else {
+            if (!ProcessBlock(NULL, pblock.get())) {
+                printf("Block %lu failed ProcessBlock\n", n_blk);
+                break;
+            }
+        }
+
+
+        n_blk++;
+    }
+
+    printf("InitBlockFile successfully imported %lu blocks\n", n_blk);
+
+    return true;
 }
 
 bool LoadBlockIndex(bool fAllowNew)

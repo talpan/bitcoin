@@ -169,6 +169,7 @@ extern bool fCommandLine;
 extern std::string strMiscWarning;
 extern bool fTestNet;
 extern bool fNoListen;
+extern bool fBlockImport;
 extern bool fLogTimestamps;
 
 void RandAddSeed();

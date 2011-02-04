@@ -362,6 +362,19 @@ bool AppInit2(int argc, char* argv[])
         strErrors += _("Error loading blkindex.dat      \n");
     printf(" block index %15"PRI64d"ms\n", GetTimeMillis() - nStart);
 
+    if (mapArgs.count("-initblocks")) {
+        string strFn = mapArgs["-initblocks"];
+
+        printf("Initializing block data from static file...\n");
+        nStart = GetTimeMillis();
+        fBlockImport = true;
+        if (!InitBlockFile(strFn))
+            strErrors += _("Error initializing block data   \n");
+        fBlockImport = false;
+        printf(" block data init %15"PRI64d"ms\n", GetTimeMillis() - nStart);
+
+    }
+
     printf("Loading wallet...\n");
     nStart = GetTimeMillis();
     bool fFirstRun;

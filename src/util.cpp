@@ -20,6 +20,7 @@ bool fCommandLine = false;
 string strMiscWarning;
 bool fTestNet = false;
 bool fNoListen = false;
+bool fBlockImport = false;
 bool fLogTimestamps = false;
 
 

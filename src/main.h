@@ -83,6 +83,7 @@ extern int fUseUPnP;
 bool CheckDiskSpace(uint64 nAdditionalBytes=0);
 FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszMode="rb");
 FILE* AppendBlockFile(unsigned int& nFileRet);
+bool InitBlockFile(string strFn);
 bool AddKey(const CKey& key);
 std::vector<unsigned char> GenerateNewKey();
 bool AddToWallet(const CWalletTx& wtxIn);
@@ -1137,6 +1138,34 @@ public:
 
 
 
+class CBlockFileHeader
+{
+public:
+    char magic[4];
+    unsigned int nSize;
+
+    IMPLEMENT_SERIALIZE
+    (
+        READWRITE(FLATDATA(magic));
+        READWRITE(nSize);
+    )
+
+    bool ReadRaw(CAutoFile &filein)
+    {
+        // Read block
+        filein >> *this;
+
+        if (memcmp(magic, pchMessageStart, 4))
+            return false;
+
+        // TODO: validate remaining file size >= nSize
+
+        return true;
+    }
+};
+
+
+
 
 
 //
@@ -1308,6 +1337,18 @@ public:
         return true;
     }
 
+    bool ReadRaw(CAutoFile &filein)
+    {
+        // Read block
+        filein >> *this;
+
+        // Check the header
+        if (!CheckProofOfWork(GetHash(), nBits))
+            return error("CBlock::ReadFromDisk() : errors in block header");
+
+        return true;
+    }
+
     bool ReadFromDisk(unsigned int nFile, unsigned int nBlockPos, bool fReadTransactions=true)
     {
         SetNull();
@@ -1319,14 +1360,7 @@ public:
         if (!fReadTransactions)
             filein.nType |= SER_BLOCKHEADERONLY;
 
-        // Read block
-        filein >> *this;
-
-        // Check the header
-        if (!CheckProofOfWork(GetHash(), nBits))
-            return error("CBlock::ReadFromDisk() : errors in block header");
-
-        return true;
+        return ReadRaw(filein);
     }
 
 
