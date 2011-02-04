@@ -3437,8 +3437,11 @@ bool CheckWork(CBlock* pblock, CReserveKey& reservekey)
     uint256 hash = pblock->GetHash();
     uint256 hashTarget = CBigNum().SetCompact(pblock->nBits).getuint256();
 
-    if (hash > hashTarget)
+    if (hash > hashTarget) {
+	    printf("proof-of-work check FAILED...\n  hash: %s\ntarget: %s\n",
+	    	   hash.GetHex().c_str(), hashTarget.GetHex().c_str());
         return false;
+    }
 
     //// debug print
     printf("BitcoinMiner:\n");
