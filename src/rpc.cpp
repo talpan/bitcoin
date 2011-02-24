@@ -184,17 +184,17 @@ Value getblocknumber(const Array& params, bool fHelp)
 }
 
 
-Value getblockbycount(const Array& params, bool fHelp)
+Value dumpblock(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
         throw runtime_error(
-            "getblockbycount height\n"
+            "dumpblock height\n"
             "Dumps the block existing at specified height");
 
     int64 height = params[0].get_int64();
     if (height > nBestHeight)
         throw runtime_error(
-            "getblockbycount height\n"
+            "dumpblock height\n"
             "Dumps the block existing at specified height");
 
     string blkname = strprintf("blk%d", height);
@@ -214,7 +214,7 @@ Value getblockbycount(const Array& params, bool fHelp)
 
     if (!found)
         throw runtime_error(
-            "getblockbycount height\n"
+            "dumpblock height\n"
             "Dumps the block existing at specified height");
 
     CBlock block;
@@ -1536,7 +1536,7 @@ pair<string, rpcfn_type> pCallTable[] =
 {
     make_pair("help",                  &help),
     make_pair("stop",                  &stop),
-    make_pair("getblockbycount",       &getblockbycount),
+    make_pair("dumpblock",       &dumpblock),
     make_pair("getblockcount",         &getblockcount),
     make_pair("getblocknumber",        &getblocknumber),
     make_pair("getconnectioncount",    &getconnectioncount),
@@ -2227,7 +2227,7 @@ int CommandLineRPC(int argc, char *argv[])
         if (strMethod == "listtransactions"       && n > 1) ConvertTo<boost::int64_t>(params[1]);
         if (strMethod == "listtransactions"       && n > 2) ConvertTo<boost::int64_t>(params[2]);
         if (strMethod == "listaccounts"           && n > 0) ConvertTo<boost::int64_t>(params[0]);
-        if (strMethod == "getblockbycount"        && n > 0) ConvertTo<boost::int64_t>(params[0]);
+        if (strMethod == "dumpblock"              && n > 0) ConvertTo<boost::int64_t>(params[0]);
         if (strMethod == "sendmany"               && n > 1)
         {
             string s = params[1].get_str();
