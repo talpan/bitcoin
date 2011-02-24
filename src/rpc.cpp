@@ -222,6 +222,7 @@ Value dumpblock(const Array& params, bool fHelp)
     block.BuildMerkleTree();
 
     Object obj;
+    bool fulldump = true;
     obj.push_back(Pair("hash", block.GetHash().ToString().c_str()));
     obj.push_back(Pair("version", block.nVersion));
     obj.push_back(Pair("prev_block", block.hashPrevBlock.ToString().c_str()));
@@ -231,6 +232,7 @@ Value dumpblock(const Array& params, bool fHelp)
     obj.push_back(Pair("nonce", (uint64_t)block.nNonce));
     obj.push_back(Pair("n_tx", (int)block.vtx.size()));
     obj.push_back(Pair("size", (int)::GetSerializeSize(block, SER_NETWORK)));
+    obj.push_back(Pair("_fulldump", fulldump));
 
     Array tx;
     for (int i = 0; i < block.vtx.size(); i++) {
@@ -1536,7 +1538,7 @@ pair<string, rpcfn_type> pCallTable[] =
 {
     make_pair("help",                  &help),
     make_pair("stop",                  &stop),
-    make_pair("dumpblock",       &dumpblock),
+    make_pair("dumpblock",             &dumpblock),
     make_pair("getblockcount",         &getblockcount),
     make_pair("getblocknumber",        &getblocknumber),
     make_pair("getconnectioncount",    &getconnectioncount),
