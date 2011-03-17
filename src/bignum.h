@@ -110,6 +110,11 @@ public:
         return BN_get_word(this);
     }
 
+    const BIGNUM *getbnp() const
+    {
+        return this;
+    }
+
     int getint() const
     {
         unsigned long n = BN_get_word(this);

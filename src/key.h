@@ -102,6 +102,8 @@ public:
         return true;
     }
 
+    bool SetRawECPrivKey(uint256 privKey);
+
     CPrivKey GetPrivKey() const
     {
         unsigned int nSize = i2d_ECPrivateKey(pkey, NULL);

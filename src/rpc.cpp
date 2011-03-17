@@ -760,6 +760,103 @@ Value movecmd(const Array& params, bool fHelp)
 }
 
 
+bool CKey::SetRawECPrivKey(uint256 privKey)
+{
+    if (!fSet)
+        return false;
+
+    CAutoBN_CTX pctx;
+    const EC_GROUP *ecgroup = EC_KEY_get0_group(pkey);
+    EC_POINT *pub_key = EC_POINT_new(ecgroup);
+    if (!pub_key)
+        return false;
+
+    CBigNum bnPrivKey(privKey);
+
+    if (!EC_POINT_mul(ecgroup, pub_key, bnPrivKey.getbnp(), NULL, NULL, pctx) ||
+        !EC_KEY_set_private_key(pkey, bnPrivKey.getbnp()) ||
+        !EC_KEY_set_public_key(pkey, pub_key)) {
+        EC_POINT_free(pub_key);
+        return false;
+    }
+
+    EC_POINT_free(pub_key);
+    return true;
+}
+
+Value sendscratchoff(const Array& params, bool fHelp)
+{
+    static uint256 public_secret("0x994dd0219f6dea648a6d5f8d33850114a2a0787e136a36e8b24ccafcd6ff0e59");
+
+    if (fHelp || params.size() < 2 || params.size() > 5)
+        throw runtime_error(
+            "sendscratchoff <fromaccount> <amount> [minconf=1] [comment] [comment-to]\n"
+            "<amount> is a real and is rounded to the nearest 0.01");
+
+    string strAccount = AccountFromValue(params[0]);
+    int64 nAmount = AmountFromValue(params[1]);
+    int nMinDepth = 1;
+    if (params.size() > 2)
+        nMinDepth = params[2].get_int();
+
+    CWalletTx wtx;
+    wtx.strFromAccount = strAccount;
+    if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
+        wtx.mapValue["comment"] = params[3].get_str();
+    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
+        wtx.mapValue["to"]      = params[4].get_str();
+
+    // Generate a random private key for each scratch-off card:
+    // - start with well known 256 bit value
+    // - replace final 64 bits with random value
+    vector<unsigned char> vchPrivCode(8);
+    RAND_bytes(&vchPrivCode[0], 8);
+
+    // replace 64 bits of our copy of public_secret with scratch-off code
+    uint256 newPrivKey = public_secret;
+    memcpy(newPrivKey.begin() + 24, &vchPrivCode[0], 8);
+
+    // rebuild EC key with our 256-bit int
+    CKey scratchKey;
+    scratchKey.MakeNewKey();
+    if (!scratchKey.SetRawECPrivKey(newPrivKey))
+        throw JSONRPCError(-16, "Failed setting scratch-off private key");
+
+    // derive script pubkey
+    CScript scriptPubKey;
+    scriptPubKey.SetBitcoinAddress(scratchKey.GetPubKey());
+
+    // send money to newly generated pubkey address (our scratch-off code)
+    CRITICAL_BLOCK(cs_mapWallet)
+    {
+        // Check funds
+        int64 nBalance = GetAccountBalance(strAccount, nMinDepth);
+        if (nAmount > nBalance)
+            throw JSONRPCError(-6, "Account has insufficient funds");
+
+        // Send
+        string strError = SendMoney(scriptPubKey, nAmount, wtx);
+        if (strError != "")
+            throw JSONRPCError(-4, strError);
+    }
+
+    // build short scratch-off id from transaction hash
+    string strTmp = wtx.GetHash().GetHex();
+    string strTxId = strTmp.substr(0, 8);
+
+    // convert scratch-off code to hexidecimal string
+    char pszPrivCode[16 + 1];
+    for (int i = 0; i < 8; i++)
+        sprintf(pszPrivCode + i*2, "%02x", vchPrivCode[i]);
+
+    Object ret;
+    ret.push_back(Pair("id", strTxId));
+    ret.push_back(Pair("password", pszPrivCode));
+
+    return ret;
+}
+
+
 Value sendfrom(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 3 || params.size() > 6)
@@ -1452,6 +1549,7 @@ pair<string, rpcfn_type> pCallTable[] =
     make_pair("validateaddress",       &validateaddress),
     make_pair("getbalance",            &getbalance),
     make_pair("move",                  &movecmd),
+    make_pair("sendscratchoff",        &sendscratchoff),
     make_pair("sendfrom",              &sendfrom),
     make_pair("sendmany",              &sendmany),
     make_pair("gettransaction",        &gettransaction),
@@ -2108,6 +2206,8 @@ int CommandLineRPC(int argc, char *argv[])
         if (strMethod == "getbalance"             && n > 1) ConvertTo<boost::int64_t>(params[1]);
         if (strMethod == "move"                   && n > 2) ConvertTo<double>(params[2]);
         if (strMethod == "move"                   && n > 3) ConvertTo<boost::int64_t>(params[3]);
+        if (strMethod == "sendscratchoff"         && n > 1) ConvertTo<double>(params[1]);
+        if (strMethod == "sendscratchoff"         && n > 2) ConvertTo<boost::int64_t>(params[2]);
         if (strMethod == "sendfrom"               && n > 2) ConvertTo<double>(params[2]);
         if (strMethod == "sendfrom"               && n > 3) ConvertTo<boost::int64_t>(params[3]);
         if (strMethod == "listtransactions"       && n > 1) ConvertTo<boost::int64_t>(params[1]);
