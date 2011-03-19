@@ -785,37 +785,14 @@ bool CKey::SetRawECPrivKey(uint256 privKey)
 }
 
 
-Value sendscratchoff(const Array& params, bool fHelp)
+// calculate 256-bit ECDSA private key from 64-bit scratch code
+uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode)
 {
-    if (fHelp || params.size() < 2 || params.size() > 5)
-        throw runtime_error(
-            "sendscratchoff <fromaccount> <amount> [minconf=1] [comment] [comment-to]\n"
-            "<amount> is a real and is rounded to the nearest 0.01");
-
-    string strAccount = AccountFromValue(params[0]);
-    int64 nAmount = AmountFromValue(params[1]);
-    int nMinDepth = 1;
-    if (params.size() > 2)
-        nMinDepth = params[2].get_int();
-
-    CWalletTx wtx;
-    wtx.strFromAccount = strAccount;
-    if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
-        wtx.mapValue["comment"] = params[3].get_str();
-    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
-        wtx.mapValue["to"]      = params[4].get_str();
-
-    vector<unsigned char> vchPrivCode(8);
     vector<unsigned char> vchHashDataIn_1(32);
     vector<unsigned char> vchHashDataIn_2(32);
     vector<unsigned char> vchHashDataOut_1(32);
     vector<unsigned char> vchHashDataOut_2(32);
     vector<unsigned char> vchHash512DataOut(64);
-
-    // Generate a random private key for each scratch-off card:
-    // - start with well known 256 bit value
-    // - replace final 64 bits with random value
-    RAND_bytes(&vchPrivCode[0], 8);
 
     // init hash input data to password + constant
     memcpy(&vchHashDataIn_1[0], &vchPrivCode[0], 8);
@@ -841,10 +818,38 @@ Value sendscratchoff(const Array& params, bool fHelp)
     uint256 rawPrivKey;
     memcpy(rawPrivKey.begin(), &vchHashDataIn_1[0], 32);
 
-    // rebuild EC key with our 256-bit int
+    return rawPrivKey;
+}
+
+
+Value sendscratchoff(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 2 || params.size() > 5)
+        throw runtime_error(
+            "sendscratchoff <fromaccount> <amount> [minconf=1] [comment] [comment-to]\n"
+            "<amount> is a real and is rounded to the nearest 0.01");
+
+    string strAccount = AccountFromValue(params[0]);
+    int64 nAmount = AmountFromValue(params[1]);
+    int nMinDepth = 1;
+    if (params.size() > 2)
+        nMinDepth = params[2].get_int();
+
+    CWalletTx wtx;
+    wtx.strFromAccount = strAccount;
+    if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
+        wtx.mapValue["comment"] = params[3].get_str();
+    if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
+        wtx.mapValue["to"]      = params[4].get_str();
+
+    // Generate a random 64-bit private key (password) for each scratch-off card
+    vector<unsigned char> vchPrivCode(8);
+    RAND_bytes(&vchPrivCode[0], 8);
+
+    // rebuild EC key with our 256-bit key, derived from password
     CKey scratchKey;
     scratchKey.MakeNewKey();
-    if (!scratchKey.SetRawECPrivKey(rawPrivKey))
+    if (!scratchKey.SetRawECPrivKey(ScratchGetPrivKey(vchPrivCode)))
         throw JSONRPCError(-16, "Failed setting scratch-off private key");
 
     // derive script pubkey
