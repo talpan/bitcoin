@@ -784,10 +784,9 @@ bool CKey::SetRawECPrivKey(uint256 privKey)
     return true;
 }
 
+
 Value sendscratchoff(const Array& params, bool fHelp)
 {
-    static uint256 public_secret("0x994dd0219f6dea648a6d5f8d33850114a2a0787e136a36e8b24ccafcd6ff0e59");
-
     if (fHelp || params.size() < 2 || params.size() > 5)
         throw runtime_error(
             "sendscratchoff <fromaccount> <amount> [minconf=1] [comment] [comment-to]\n"
@@ -806,20 +805,46 @@ Value sendscratchoff(const Array& params, bool fHelp)
     if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
         wtx.mapValue["to"]      = params[4].get_str();
 
+    vector<unsigned char> vchPrivCode(8);
+    vector<unsigned char> vchHashDataIn_1(32);
+    vector<unsigned char> vchHashDataIn_2(32);
+    vector<unsigned char> vchHashDataOut_1(32);
+    vector<unsigned char> vchHashDataOut_2(32);
+    vector<unsigned char> vchHash512DataOut(64);
+
     // Generate a random private key for each scratch-off card:
     // - start with well known 256 bit value
     // - replace final 64 bits with random value
-    vector<unsigned char> vchPrivCode(8);
     RAND_bytes(&vchPrivCode[0], 8);
 
-    // replace 64 bits of our copy of public_secret with scratch-off code
-    uint256 newPrivKey = public_secret;
-    memcpy(newPrivKey.begin() + 24, &vchPrivCode[0], 8);
+    // init hash input data to password + constant
+    memcpy(&vchHashDataIn_1[0], &vchPrivCode[0], 8);
+    memset(&vchHashDataIn_1[8], 0x42, 24);
+    memcpy(&vchHashDataIn_2[0], &vchPrivCode[0], 8);
+    memset(&vchHashDataIn_2[8], 0x6c, 24);
+
+    for (int i = 0; i < 108333; i++) {
+        SHA512_CTX sc;
+
+        SHA256(&vchHashDataIn_1[0], 32, &vchHashDataOut_1[0]);
+        SHA256(&vchHashDataIn_2[0], 32, &vchHashDataOut_2[0]);
+
+        SHA512_Init(&sc);
+        SHA512_Update(&sc, &vchHashDataOut_1[0], 32);
+        SHA512_Update(&sc, &vchHashDataOut_2[0], 32);
+        SHA512_Final(&vchHash512DataOut[0], &sc);
+
+        memcpy(&vchHashDataIn_1[0], &vchHash512DataOut[0], 32);
+        memcpy(&vchHashDataIn_2[0], &vchHash512DataOut[32], 32);
+    }
+
+    uint256 rawPrivKey;
+    memcpy(rawPrivKey.begin(), &vchHashDataIn_1[0], 32);
 
     // rebuild EC key with our 256-bit int
     CKey scratchKey;
     scratchKey.MakeNewKey();
-    if (!scratchKey.SetRawECPrivKey(newPrivKey))
+    if (!scratchKey.SetRawECPrivKey(rawPrivKey))
         throw JSONRPCError(-16, "Failed setting scratch-off private key");
 
     // derive script pubkey
