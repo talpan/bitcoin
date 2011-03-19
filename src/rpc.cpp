@@ -822,6 +822,77 @@ uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode)
 }
 
 
+Value scratchoff(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() < 3 || params.size() > 5)
+        throw runtime_error(
+            "scratchoff <id> <password> <toaccount> [comment] [comment-to]\n"
+            "<amount> is a real and is rounded to the nearest 0.01");
+
+    // param 1: transaction id
+    uint256 txhash;
+    txhash.SetHex(params[0].get_str());
+
+    // param 2: hex-encoded private code
+    vector<unsigned char> vchPrivCode = ParseHex(params[1].get_str());
+    if (vchPrivCode.size() != 8)
+        throw JSONRPCError(-17, "invalid password length");
+
+    // param 3: destination account for spend
+    string strAccount = AccountFromValue(params[2]);
+
+    // calculate public, private keys from password
+    CKey scratchKey;
+    scratchKey.MakeNewKey();
+    if (!scratchKey.SetRawECPrivKey(ScratchGetPrivKey(vchPrivCode)))
+        throw JSONRPCError(-16, "Failed setting scratch-off private key");
+
+    // calc hash 160 from public key
+    vector<unsigned char> vchPubKey = scratchKey.GetPubKey();
+    uint160 pubhash = Hash160(vchPubKey);
+
+    // read requested TX
+    CTxDB txdb("r");
+    CTransaction tx;
+    if (!txdb.ReadDiskTx(txhash, tx))
+        throw JSONRPCError(-18, "invalid or missing id");
+
+    // scan for matching pubkey hash
+    int64 nValue = 0;
+    bool matched = false;
+    foreach(const CTxOut& txout, tx.vout)
+    {
+        uint160 hash160 = txout.scriptPubKey.GetBitcoinAddressHash160();
+        if (hash160 == pubhash) {
+            nValue = txout.nValue;
+            matched = true;
+            break;
+        }
+    }
+    if (!matched)
+        throw JSONRPCError(-19, "transaction not found for id/password");
+
+    // we know this key is ours, and matches a transaction.
+
+    // add keypair to wallet
+    if (!CWalletDB().WriteKey(scratchKey.GetPubKey(), scratchKey.GetPrivKey()))
+        throw JSONRPCError(-15, "failed adding key to wallet");
+
+    // add TX to wallet
+    CRITICAL_BLOCK(cs_mapWallet)
+    {
+        if (mapWallet.count(txhash) == 0)
+        {
+            CWalletTx wtx(tx);
+            if (!AddToWallet(wtx))
+                throw JSONRPCError(-14, "failed adding TX to wallet");
+        }
+    }
+
+    return true;
+}
+
+
 Value sendscratchoff(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 2 || params.size() > 5)
@@ -1580,6 +1651,7 @@ pair<string, rpcfn_type> pCallTable[] =
     make_pair("getbalance",            &getbalance),
     make_pair("move",                  &movecmd),
     make_pair("sendscratchoff",        &sendscratchoff),
+    make_pair("scratchoff",            &scratchoff),
     make_pair("sendfrom",              &sendfrom),
     make_pair("sendmany",              &sendmany),
     make_pair("gettransaction",        &gettransaction),
