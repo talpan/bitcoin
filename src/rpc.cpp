@@ -794,11 +794,22 @@ uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode)
     vector<unsigned char> vchHashDataOut_2(32);
     vector<unsigned char> vchHash512DataOut(64);
 
-    // init hash input data to password + constant
-    memcpy(&vchHashDataIn_1[0], &vchPrivCode[0], 8);
-    memset(&vchHashDataIn_1[8], 0x42, 24);
-    memcpy(&vchHashDataIn_2[0], &vchPrivCode[0], 8);
-    memset(&vchHashDataIn_2[8], 0x6c, 24);
+    // init hash input data to (password,salt) or (salt,password)
+    static const char *salt = "bitcoin";
+
+    SHA256_CTX tc;
+
+    // pipe1 init: (password, salt)
+    SHA256_Init(&tc);
+    SHA256_Update(&tc, &vchPrivCode[0], vchPrivCode.size());
+    SHA256_Update(&tc, salt, strlen(salt));
+    SHA256_Final(&vchHashDataIn_1[0], &tc);
+
+    // pipe2 init: (salt, password)
+    SHA256_Init(&tc);
+    SHA256_Update(&tc, salt, strlen(salt));
+    SHA256_Update(&tc, &vchPrivCode[0], vchPrivCode.size());
+    SHA256_Final(&vchHashDataIn_2[0], &tc);
 
     for (int i = 0; i < 108333; i++) {
         SHA512_CTX sc;
@@ -826,7 +837,7 @@ Value scratchoff(const Array& params, bool fHelp)
 {
     if (fHelp || params.size() < 3 || params.size() > 5)
         throw runtime_error(
-            "scratchoff <id> <password> <toaccount> [comment] [comment-to]\n"
+            "scratchoff <txid> <password> <toaccount> [comment] [comment-to]\n"
             "<amount> is a real and is rounded to the nearest 0.01");
 
     // param 1: transaction id
@@ -835,7 +846,8 @@ Value scratchoff(const Array& params, bool fHelp)
 
     // param 2: hex-encoded private code
     vector<unsigned char> vchPrivCode = ParseHex(params[1].get_str());
-    if (vchPrivCode.size() != 8)
+    int nBits = vchPrivCode.size() * 8;
+    if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
         throw JSONRPCError(-17, "invalid password length");
 
     // param 3: destination account for spend
@@ -902,10 +914,16 @@ Value sendscratchoff(const Array& params, bool fHelp)
 
     string strAccount = AccountFromValue(params[0]);
     int64 nAmount = AmountFromValue(params[1]);
-    Object options = params[2].get_obj();
+    Object objOptions = params[2].get_obj();
     int nMinDepth = 1;
     if (params.size() > 3)
         nMinDepth = params[3].get_int();
+
+    int nBits = find_value(objOptions, "bits").get_int();
+    if (nBits == 0)
+        nBits = 64;
+    else if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
+        throw JSONRPCError(-13, "Invalid password bit size");
 
     CWalletTx wtx;
     wtx.strFromAccount = strAccount;
@@ -914,9 +932,10 @@ Value sendscratchoff(const Array& params, bool fHelp)
     if (params.size() > 5 && params[5].type() != null_type && !params[5].get_str().empty())
         wtx.mapValue["to"]      = params[5].get_str();
 
-    // Generate a random 64-bit private key (password) for each scratch-off card
-    vector<unsigned char> vchPrivCode(8);
-    RAND_bytes(&vchPrivCode[0], 8);
+    // Generate a random private key (password) for each scratch-off card
+    int nBytes = nBits / 8;
+    vector<unsigned char> vchPrivCode(nBytes);
+    RAND_bytes(&vchPrivCode[0], nBytes);
 
     // rebuild EC key with our 256-bit key, derived from password
     CKey scratchKey;
@@ -943,8 +962,8 @@ Value sendscratchoff(const Array& params, bool fHelp)
     }
 
     // convert scratch-off code to hexidecimal string
-    char pszPrivCode[16 + 1];
-    for (int i = 0; i < 8; i++)
+    char pszPrivCode[(nBytes * 2) + 1];
+    for (int i = 0; i < nBytes; i++)
         sprintf(pszPrivCode + i*2, "%02x", vchPrivCode[i]);
 
     Object ret;
