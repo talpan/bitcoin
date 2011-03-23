@@ -786,7 +786,8 @@ bool CKey::SetRawECPrivKey(uint256 privKey)
 
 
 // calculate 256-bit ECDSA private key from 64-bit scratch code
-uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode)
+uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode,
+                          const char *salt)
 {
     vector<unsigned char> vchHashDataIn_1(32);
     vector<unsigned char> vchHashDataIn_2(32);
@@ -794,9 +795,10 @@ uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode)
     vector<unsigned char> vchHashDataOut_2(32);
     vector<unsigned char> vchHash512DataOut(64);
 
-    // init hash input data to (password,salt) or (salt,password)
-    static const char *salt = "bitcoin";
+    if (!salt || !strlen(salt))
+        salt = "bitcoin";
 
+    // init hash input data to (password,salt) or (salt,password)
     SHA256_CTX tc;
 
     // pipe1 init: (password, salt)
@@ -835,10 +837,9 @@ uint256 ScratchGetPrivKey(vector<unsigned char>& vchPrivCode)
 
 Value scratchoff(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 3 || params.size() > 5)
+    if (fHelp || params.size() < 2 || params.size() > 4)
         throw runtime_error(
-            "scratchoff <txid> <password> <toaccount> [comment] [comment-to]\n"
-            "<amount> is a real and is rounded to the nearest 0.01");
+            "scratchoff <txid> <password> [salt-or-null] [toaccount]\n");
 
     // param 1: transaction id
     uint256 txhash;
@@ -850,13 +851,21 @@ Value scratchoff(const Array& params, bool fHelp)
     if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
         throw JSONRPCError(-17, "invalid password length");
 
-    // param 3: destination account for spend
-    string strAccount = AccountFromValue(params[2]);
+    // param 3: optional salt
+    string strSalt;
+    if (params.size() > 2)
+        strSalt = params[2].get_str();
+
+    // param 4: optional destination account for spend
+    string strAccount;
+    if (params.size() > 3)
+        strAccount = AccountFromValue(params[3]);
 
     // calculate public, private keys from password
     CKey scratchKey;
     scratchKey.MakeNewKey();
-    if (!scratchKey.SetRawECPrivKey(ScratchGetPrivKey(vchPrivCode)))
+    if (!scratchKey.SetRawECPrivKey(ScratchGetPrivKey(vchPrivCode,
+                                                      strSalt.c_str())))
         throw JSONRPCError(-16, "Failed setting scratch-off private key");
 
     // calc hash 160 from public key
@@ -919,11 +928,28 @@ Value sendscratchoff(const Array& params, bool fHelp)
     if (params.size() > 3)
         nMinDepth = params[3].get_int();
 
-    int nBits = find_value(objOptions, "bits").get_int();
-    if (nBits == 0)
+    // option: bits (default: 64)
+    int nBits;
+    Value valBits = find_value(objOptions, "bits");
+    if (valBits.type() == null_type)
         nBits = 64;
-    else if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
-        throw JSONRPCError(-13, "Invalid password bit size");
+    else if (valBits.type() != int_type)
+        throw JSONRPCError(-13, "'bits' must be an integer");
+    else {
+        nBits = valBits.get_int();
+        if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
+            throw JSONRPCError(-13, "Invalid password bit size");
+    }
+
+    // option: salt (default: "bitcoin")
+    string strSalt;
+    Value valSalt = find_value(objOptions, "salt");
+    if (valSalt.type() == null_type)
+        /* do nothing */ ;
+    else if (valSalt.type() != str_type)
+        throw JSONRPCError(-13, "'salt' must be a string");
+    else
+        strSalt = valSalt.get_str();
 
     CWalletTx wtx;
     wtx.strFromAccount = strAccount;
@@ -940,7 +966,8 @@ Value sendscratchoff(const Array& params, bool fHelp)
     // rebuild EC key with our 256-bit key, derived from password
     CKey scratchKey;
     scratchKey.MakeNewKey();
-    if (!scratchKey.SetRawECPrivKey(ScratchGetPrivKey(vchPrivCode)))
+    if (!scratchKey.SetRawECPrivKey(ScratchGetPrivKey(vchPrivCode,
+                                                      strSalt.c_str())))
         throw JSONRPCError(-16, "Failed setting scratch-off private key");
 
     // derive script pubkey
