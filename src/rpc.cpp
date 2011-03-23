@@ -895,9 +895,9 @@ Value scratchoff(const Array& params, bool fHelp)
 
     // we know this key is ours, and matches a transaction.
 
-    // add keypair to wallet
-    if (!CWalletDB().WriteKey(scratchKey.GetPubKey(), scratchKey.GetPrivKey()))
-        throw JSONRPCError(-15, "failed adding key to wallet");
+    // import keypair
+    if (!AddKey(scratchKey))
+        throw JSONRPCError(-15, "scratchoff key wallet store failed");
 
     // add TX to wallet
     CRITICAL_BLOCK(cs_mapWallet)
@@ -906,7 +906,7 @@ Value scratchoff(const Array& params, bool fHelp)
         {
             CWalletTx wtx(tx);
             if (!AddToWallet(wtx))
-                throw JSONRPCError(-14, "failed adding TX to wallet");
+                throw JSONRPCError(-14, "scratchoff TX wallet store failed");
         }
     }
 
