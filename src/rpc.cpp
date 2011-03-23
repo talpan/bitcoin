@@ -895,23 +895,24 @@ Value scratchoff(const Array& params, bool fHelp)
 
 Value sendscratchoff(const Array& params, bool fHelp)
 {
-    if (fHelp || params.size() < 2 || params.size() > 5)
+    if (fHelp || params.size() < 3 || params.size() > 6)
         throw runtime_error(
-            "sendscratchoff <fromaccount> <amount> [minconf=1] [comment] [comment-to]\n"
+            "sendscratchoff <fromaccount> <amount> {option1:...,option2:...} [minconf=1] [comment] [comment-to]\n"
             "<amount> is a real and is rounded to the nearest 0.01");
 
     string strAccount = AccountFromValue(params[0]);
     int64 nAmount = AmountFromValue(params[1]);
+    Object options = params[2].get_obj();
     int nMinDepth = 1;
-    if (params.size() > 2)
-        nMinDepth = params[2].get_int();
+    if (params.size() > 3)
+        nMinDepth = params[3].get_int();
 
     CWalletTx wtx;
     wtx.strFromAccount = strAccount;
-    if (params.size() > 3 && params[3].type() != null_type && !params[3].get_str().empty())
-        wtx.mapValue["comment"] = params[3].get_str();
     if (params.size() > 4 && params[4].type() != null_type && !params[4].get_str().empty())
-        wtx.mapValue["to"]      = params[4].get_str();
+        wtx.mapValue["comment"] = params[4].get_str();
+    if (params.size() > 5 && params[5].type() != null_type && !params[5].get_str().empty())
+        wtx.mapValue["to"]      = params[5].get_str();
 
     // Generate a random 64-bit private key (password) for each scratch-off card
     vector<unsigned char> vchPrivCode(8);
@@ -941,17 +942,13 @@ Value sendscratchoff(const Array& params, bool fHelp)
             throw JSONRPCError(-4, strError);
     }
 
-    // build short scratch-off id from transaction hash
-    string strTmp = wtx.GetHash().GetHex();
-    string strTxId = strTmp.substr(0, 8);
-
     // convert scratch-off code to hexidecimal string
     char pszPrivCode[16 + 1];
     for (int i = 0; i < 8; i++)
         sprintf(pszPrivCode + i*2, "%02x", vchPrivCode[i]);
 
     Object ret;
-    ret.push_back(Pair("id", strTxId));
+    ret.push_back(Pair("txid", wtx.GetHash().GetHex()));
     ret.push_back(Pair("password", pszPrivCode));
 
     return ret;
@@ -2310,6 +2307,14 @@ int CommandLineRPC(int argc, char *argv[])
         if (strMethod == "move"                   && n > 3) ConvertTo<boost::int64_t>(params[3]);
         if (strMethod == "sendscratchoff"         && n > 1) ConvertTo<double>(params[1]);
         if (strMethod == "sendscratchoff"         && n > 2) ConvertTo<boost::int64_t>(params[2]);
+        if (strMethod == "sendscratchoff"         && n > 3)
+        {
+            string s = params[3].get_str();
+            Value v;
+            if (!read_string(s, v) || v.type() != obj_type)
+                throw runtime_error("type mismatch");
+            params[3] = v.get_obj();
+        }
         if (strMethod == "sendfrom"               && n > 2) ConvertTo<double>(params[2]);
         if (strMethod == "sendfrom"               && n > 3) ConvertTo<boost::int64_t>(params[3]);
         if (strMethod == "listtransactions"       && n > 1) ConvertTo<boost::int64_t>(params[1]);
