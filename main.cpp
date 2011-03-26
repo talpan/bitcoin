@@ -41,6 +41,7 @@ map<uint256, CWalletTx> mapWallet;
 vector<uint256> vWalletUpdated;
 CCriticalSection cs_mapWallet;
 
+CCrypter cWalletCrypter;
 map<vector<unsigned char>, CPrivKey> mapKeys;
 map<uint160, vector<unsigned char> > mapPubKeys;
 CCriticalSection cs_mapKeys;
@@ -83,7 +84,14 @@ bool AddKey(const CKey& key)
         mapKeys[key.GetPubKey()] = key.GetPrivKey();
         mapPubKeys[Hash160(key.GetPubKey())] = key.GetPubKey();
     }
-    return CWalletDB().WriteKey(key.GetPubKey(), key.GetPrivKey());
+
+    CPrivKey privKey = key.GetPrivKey();
+    vector<unsigned char> vchPlaintext(privKey.size());
+    memcpy(&vchPlaintext[0], &privKey[0], privKey.size());
+
+    vector<unsigned char> vchCiphertext;
+    vchCiphertext = cWalletCrypter.Encrypt(vchPlaintext);
+    return CWalletDB().WriteKey(key.GetPubKey(), vchCiphertext);
 }
 
 vector<unsigned char> GenerateNewKey()

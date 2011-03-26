@@ -744,6 +744,25 @@ bool CWalletDB::LoadWallet()
                 if (nNumber > nAccountingEntryNumber)
                     nAccountingEntryNumber = nNumber;
             }
+            else if (strType == "ekey")
+            {
+                vector<unsigned char> vchPubKey;
+                ssKey >> vchPubKey;
+
+                vector<unsigned char> vchCiphertext;
+                ssKey >> vchCiphertext;
+
+                vector<unsigned char> vchPlaintext;
+                vchPlaintext = cWalletCrypter.Decrypt(vchCiphertext);
+
+                CWalletKey wkey;
+                wkey.vchPrivKey.resize(vchPlaintext.size());
+                memcpy(&wkey.vchPrivKey[0], &vchPlaintext[0],
+                       vchPlaintext.size());
+
+                mapKeys[vchPubKey] = wkey.vchPrivKey;
+                mapPubKeys[Hash160(vchPubKey)] = vchPubKey;
+            }
             else if (strType == "key" || strType == "wkey")
             {
                 vector<unsigned char> vchPubKey;

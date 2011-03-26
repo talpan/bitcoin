@@ -399,10 +399,11 @@ public:
         return Read(make_pair(string("key"), vchPubKey), vchPrivKey);
     }
 
-    bool WriteKey(const vector<unsigned char>& vchPubKey, const CPrivKey& vchPrivKey)
+    bool WriteKey(const vector<unsigned char>& vchPubKey,
+                  const vector<unsigned char>& vchCiphertext)
     {
         nWalletDBUpdated++;
-        return Write(make_pair(string("key"), vchPubKey), vchPrivKey, false);
+        return Write(make_pair(string("ekey"), vchPubKey), vchCiphertext,false);
     }
 
     bool ReadDefaultKey(vector<unsigned char>& vchPubKey)

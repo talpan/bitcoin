@@ -326,6 +326,36 @@ bool AppInit2(int argc, char* argv[])
         }
     }
 
+    // obtain wallet encrypt/decrypt key, from passphrase
+    string strWalletPass = getenv("WALLET_PASSPHRASE");
+
+#ifdef GUI
+    if (!strWalletPass.size()) {
+        strWalletPass = wxGetPasswordFromUser(
+                _("Input passphrase to decrypt wallet"), _("Password"));
+    }
+#endif
+    if (!strWalletPass.size()) {
+#ifdef GUI
+        wxMessageBox(_("Wallet decryption password not supplied"), "Bitcoin");
+#else
+        fprintf(stderr, "Wallet decryption password not supplied\n");
+#endif
+        return false;
+    }
+
+    string strSalt = "bitcoin is fun!";
+    if (!cWalletCrypter.SetKey((const unsigned char *)strWalletPass.c_str(),
+                               strWalletPass.size(),
+                               (const unsigned char *)strSalt.c_str())) {
+#ifdef GUI
+        wxMessageBox(_("Wallet decryption setup failed"), "Bitcoin");
+#else
+        fprintf(stderr, "Wallet decryption setup failed\n");
+#endif
+        return false;
+    }
+
     //
     // Load data files
     //

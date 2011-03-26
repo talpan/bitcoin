@@ -39,6 +39,7 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/aes.h>
 #include <openssl/ripemd.h>
 #include <db_cxx.h>
 #include <stdio.h>
@@ -117,6 +118,7 @@ using namespace boost;
 #include "uint256.h"
 #include "util.h"
 #include "key.h"
+#include "crypter.h"
 #include "bignum.h"
 #include "base58.h"
 #include "script.h"
