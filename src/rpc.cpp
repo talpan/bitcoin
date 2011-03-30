@@ -848,7 +848,7 @@ Value scratchoff(const Array& params, bool fHelp)
     // param 2: hex-encoded private code
     vector<unsigned char> vchPrivCode = ParseHex(params[1].get_str());
     int nBits = vchPrivCode.size() * 8;
-    if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
+    if (nBits < 64 || nBits > 256 || (nBits & 0x7))
         throw JSONRPCError(-17, "invalid password length");
 
     // param 3: optional salt
@@ -937,7 +937,7 @@ Value sendscratchoff(const Array& params, bool fHelp)
         throw JSONRPCError(-13, "'bits' must be an integer");
     else {
         nBits = valBits.get_int();
-        if (nBits < 64 || nBits > 1024 || (nBits & 0x7))
+        if (nBits < 64 || nBits > 256 || (nBits & 0x7))
             throw JSONRPCError(-13, "Invalid password bit size");
     }
 
