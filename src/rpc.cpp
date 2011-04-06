@@ -2352,15 +2352,15 @@ int CommandLineRPC(int argc, char *argv[])
         if (strMethod == "move"                   && n > 2) ConvertTo<double>(params[2]);
         if (strMethod == "move"                   && n > 3) ConvertTo<boost::int64_t>(params[3]);
         if (strMethod == "sendscratchoff"         && n > 1) ConvertTo<double>(params[1]);
-        if (strMethod == "sendscratchoff"         && n > 2) ConvertTo<boost::int64_t>(params[2]);
-        if (strMethod == "sendscratchoff"         && n > 3)
+        if (strMethod == "sendscratchoff"         && n > 2)
         {
-            string s = params[3].get_str();
+            string s = params[2].get_str();
             Value v;
             if (!read_string(s, v) || v.type() != obj_type)
                 throw runtime_error("type mismatch");
             params[3] = v.get_obj();
         }
+        if (strMethod == "sendscratchoff"         && n > 3) ConvertTo<boost::int64_t>(params[3]);
         if (strMethod == "sendfrom"               && n > 2) ConvertTo<double>(params[2]);
         if (strMethod == "sendfrom"               && n > 3) ConvertTo<boost::int64_t>(params[3]);
         if (strMethod == "listtransactions"       && n > 1) ConvertTo<boost::int64_t>(params[1]);
