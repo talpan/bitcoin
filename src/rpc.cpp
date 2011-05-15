@@ -184,43 +184,8 @@ Value getblocknumber(const Array& params, bool fHelp)
 }
 
 
-Value getblockbycount(const Array& params, bool fHelp)
+Value BlockToValue(CBlock &block)
 {
-    if (fHelp || params.size() != 1)
-        throw runtime_error(
-            "getblockbycount height\n"
-            "Dumps the block existing at specified height");
-
-    int64 height = params[0].get_int64();
-    if (height > nBestHeight)
-        throw runtime_error(
-            "getblockbycount height\n"
-            "Dumps the block existing at specified height");
-
-    string blkname = strprintf("blk%d", height);
-
-    CBlockIndex* pindex;
-    bool found = false;
-
-    for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin();
-         mi != mapBlockIndex.end(); ++mi)
-    {
-    	pindex = (*mi).second;
-	if ((pindex->nHeight == height) && (pindex->IsInMainChain())) {
-		found = true;
-		break;
-	}
-    }
-
-    if (!found)
-        throw runtime_error(
-            "getblockbycount height\n"
-            "Dumps the block existing at specified height");
-
-    CBlock block;
-    block.ReadFromDisk(pindex);
-    block.BuildMerkleTree();
-
     Object obj;
     obj.push_back(Pair("hash", block.GetHash().ToString().c_str()));
     obj.push_back(Pair("version", block.nVersion));
@@ -294,6 +259,71 @@ Value getblockbycount(const Array& params, bool fHelp)
     obj.push_back(Pair("mrkl_tree", mrkl));
 
     return obj;
+}
+
+
+Value getblockbycount(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getblockbycount height\n"
+            "Dumps the block existing at specified height");
+
+    int64 height = params[0].get_int64();
+    if (height > nBestHeight)
+        throw runtime_error(
+            "getblockbycount height\n"
+            "Dumps the block existing at specified height");
+
+    string blkname = strprintf("blk%d", height);
+
+    CBlockIndex* pindex;
+    bool found = false;
+
+    for (map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.begin();
+         mi != mapBlockIndex.end(); ++mi)
+    {
+    	pindex = (*mi).second;
+	if ((pindex->nHeight == height) && (pindex->IsInMainChain())) {
+		found = true;
+		break;
+	}
+    }
+
+    if (!found)
+        throw runtime_error(
+            "getblockbycount height\n"
+            "Dumps the block existing at specified height");
+
+    CBlock block;
+    block.ReadFromDisk(pindex);
+    block.BuildMerkleTree();
+
+    return BlockToValue(block);
+}
+
+
+Value getblockbyhash(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "getblockbyhash hash\n"
+            "Dumps the block with specified hash");
+
+    uint256 hash;
+    hash.SetHex(params[0].get_str());
+
+    map<uint256, CBlockIndex*>::iterator mi = mapBlockIndex.find(hash);
+    if (mi == mapBlockIndex.end())
+        throw JSONRPCError(-18, "hash not found");
+
+    CBlockIndex* pindex = (*mi).second;
+
+    CBlock block;
+    block.ReadFromDisk(pindex);
+    block.BuildMerkleTree();
+
+    return BlockToValue(block);
 }
 
 
@@ -1537,6 +1567,7 @@ pair<string, rpcfn_type> pCallTable[] =
     make_pair("help",                  &help),
     make_pair("stop",                  &stop),
     make_pair("getblockbycount",       &getblockbycount),
+    make_pair("getblockbyhash",        &getblockbyhash),
     make_pair("getblockcount",         &getblockcount),
     make_pair("getblocknumber",        &getblocknumber),
     make_pair("getconnectioncount",    &getconnectioncount),
