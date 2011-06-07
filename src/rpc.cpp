@@ -881,7 +881,7 @@ Value scratchoff(const Array& params, bool fHelp)
     // scan for matching pubkey hash
     int64 nValue = 0;
     bool matched = false;
-    foreach(const CTxOut& txout, tx.vout)
+    BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
         uint160 hash160 = txout.scriptPubKey.GetBitcoinAddressHash160();
         if (hash160 == pubhash) {
