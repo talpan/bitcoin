@@ -1078,7 +1078,7 @@ Value xListTransactions(int64 nCount, int64 nMinDepth, bool fGenerated)
 
 	    if (nNet > 0)
 	    {
-                foreach(const CTxOut& txout, wtx.vout)
+                BOOST_FOREACH(const CTxOut& txout, wtx.vout)
                 {
                     uint160 hash160 = txout.scriptPubKey.GetBitcoinAddressHash160();
 
@@ -1102,11 +1102,11 @@ Value xListTransactions(int64 nCount, int64 nMinDepth, bool fGenerated)
 	    else
 	    {
 	    	bool fAllFromMe = true;
-		foreach(const CTxIn& txin, wtx.vin)
+		BOOST_FOREACH(const CTxIn& txin, wtx.vin)
 		    fAllFromMe = fAllFromMe && txin.IsMine();
 
 		bool fAllToMe = true;
-		foreach(const CTxOut& txout, wtx.vout)
+		BOOST_FOREACH(const CTxOut& txout, wtx.vout)
 		    fAllToMe = fAllToMe && txout.IsMine();
 
 		if (fAllFromMe && fAllToMe)	// payment to self
@@ -1173,7 +1173,7 @@ Value xListTransactions(int64 nCount, int64 nMinDepth, bool fGenerated)
     int64 returned = 0;
     CRITICAL_BLOCK(cs_mapAddressBook)
     {
-        foreach(const txnitem& txn, tv)
+        BOOST_FOREACH(const txnitem& txn, tv)
 	{
 	    if ((nCount > 0) && (returned >= nCount))
 	    	break;
