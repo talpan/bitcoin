@@ -83,7 +83,7 @@ extern int fUseUPnP;
 bool CheckDiskSpace(uint64 nAdditionalBytes=0);
 FILE* OpenBlockFile(unsigned int nFile, unsigned int nBlockPos, const char* pszMode="rb");
 FILE* AppendBlockFile(unsigned int& nFileRet);
-bool InitBlockFile(string strFn);
+bool InitBlockFile(std::string strFn);
 bool AddKey(const CKey& key);
 std::vector<unsigned char> GenerateNewKey();
 bool AddToWallet(const CWalletTx& wtxIn);
